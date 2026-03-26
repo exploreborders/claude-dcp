@@ -5,6 +5,7 @@
   "author": {
     "name": "claude-dcp"
   },
-  "homepage": "https://github.com/claude-dcp/claude-dcp",
+  "homepage": "https://github.com/exploreborders/claude-dcp",
+  "repository": "https://github.com/exploreborders/claude-dcp",
   "license": "MIT"
 }

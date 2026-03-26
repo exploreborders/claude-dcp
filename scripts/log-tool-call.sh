@@ -21,12 +21,14 @@ increment_turn "$STATE_DIR" > /dev/null
 # Log the tool call
 log_tool_call "$STATE_DIR" "$TOOL_NAME" "$TOOL_INPUT" "$TOOL_ID"
 
-# Trim tool log to last 500 entries to prevent unbounded growth
+# Trim tool log to prevent unbounded growth
 LOG_FILE="${STATE_DIR}/tool-log.jsonl"
 if [ -f "$LOG_FILE" ]; then
   LINE_COUNT=$(count_lines "$LOG_FILE")
-  if [ "$LINE_COUNT" -gt 500 ]; then
-    tail -n 300 "$LOG_FILE" > "${LOG_FILE}.tmp"
+  if [ "$LINE_COUNT" -gt "$DCP_MAX_TOOL_LOG_ENTRIES" ]; then
+    # Write trimmed file to tmp, then atomic rename to avoid race conditions
+    local_trimmed=$((DCP_MAX_TOOL_LOG_ENTRIES * 6 / 10))
+    tail -n "$local_trimmed" "$LOG_FILE" > "${LOG_FILE}.tmp"
     mv "${LOG_FILE}.tmp" "$LOG_FILE"
   fi
 fi

@@ -42,6 +42,15 @@
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pre-compact-optimize.sh"
           }
         ]
+      },
+      {
+        "matcher": "manual",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pre-compact-optimize.sh"
+          }
+        ]
       }
     ],
     "PostCompact": [
@@ -60,6 +69,16 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/context-nudge.sh"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-cleanup.sh"
           }
         ]
       }

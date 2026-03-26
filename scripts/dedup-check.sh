@@ -12,12 +12,15 @@ SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // "unknown"')
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name // "unknown"')
 TOOL_INPUT=$(echo "$INPUT" | jq -c '.tool_input // {}')
 
-# Don't block critical tools
-case "$TOOL_NAME" in
-  Edit|Write|ExitPlanMode|AskUserQuestion|TodoWrite)
-    exit 0
-    ;;
-esac
+# Don't block protected tools
+if is_protected_tool "$TOOL_NAME"; then
+  exit 0
+fi
+
+# Skip if dedup is disabled
+if [ "$DCP_DEDUP_ENABLED" != "true" ]; then
+  exit 0
+fi
 
 STATE_DIR=$(get_state_dir "$SESSION_ID")
 SIGNATURE=$(compute_signature "$TOOL_NAME" "$TOOL_INPUT")
@@ -30,9 +33,8 @@ if check_duplicate "$STATE_DIR" "$SIGNATURE"; then
   NOW=$(date +%s)
   AGE=$((NOW - LAST_TS))
 
-  # Only block if the duplicate is recent (< 60 seconds)
-  # This allows intentionally re-running the same command after a while
-  if [ "$AGE" -lt 60 ]; then
+  # Only block if the duplicate is recent (within configured window)
+  if [ "$AGE" -lt "$DCP_DUPLICATE_BLOCK_WINDOW" ]; then
     jq -n '{
       hookSpecificOutput: {
         hookEventName: "PreToolUse",

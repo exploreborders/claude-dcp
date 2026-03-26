@@ -15,20 +15,64 @@ import os
 import sys
 import hashlib
 from collections import defaultdict
-from pathlib import Path
 
-# Configuration
-ERROR_PURGE_TURNS = int(os.environ.get("DCP_ERROR_PURGE_TURNS", "4"))
-PROTECTED_TOOLS = {"Write", "Edit", "ExitPlanMode", "TodoWrite", "AskUserQuestion", "Task"}
+# --- Configuration ---
+# Load from config.json (plugin root), fall back to env vars, then defaults.
+
+CONFIG_PATH = os.path.join(
+    os.environ.get("CLAUDE_PLUGIN_ROOT", os.path.dirname(os.path.abspath(__file__))),
+    "..", "config.json"
+)
+
+def load_config():
+    """Load configuration from config.json, with env var overrides."""
+    config = {
+        "error_purge_turns": 4,
+        "error_purge_enabled": True,
+        "protected_tools": ["Write", "Edit", "ExitPlanMode", "TodoWrite", "AskUserQuestion", "Task"],
+    }
+
+    # Load config.json if it exists
+    config_file = os.path.normpath(CONFIG_PATH)
+    if os.path.isfile(config_file):
+        try:
+            with open(config_file, "r") as f:
+                file_config = json.load(f)
+            if "error_purge_turns" in file_config:
+                config["error_purge_turns"] = file_config["error_purge_turns"]
+            if "error_purge_enabled" in file_config:
+                config["error_purge_enabled"] = file_config["error_purge_enabled"]
+            if "protected_tools" in file_config:
+                config["protected_tools"] = file_config["protected_tools"]
+        except (json.JSONDecodeError, IOError):
+            pass
+
+    # Env var overrides
+    if "DCP_ERROR_PURGE_TURNS" in os.environ:
+        try:
+            config["error_purge_turns"] = int(os.environ["DCP_ERROR_PURGE_TURNS"])
+        except ValueError:
+            pass
+    if "DCP_ERROR_PURGE_ENABLED" in os.environ:
+        config["error_purge_enabled"] = os.environ["DCP_ERROR_PURGE_ENABLED"].lower() == "true"
+
+    return config
+
+CFG = load_config()
+ERROR_PURGE_TURNS = CFG["error_purge_turns"]
+ERROR_PURGE_ENABLED = CFG["error_purge_enabled"]
+PROTECTED_TOOLS = set(CFG["protected_tools"])
 
 
 def normalize_input(tool_input):
-    """Normalize tool input for consistent comparison."""
+    """Normalize tool input for consistent comparison.
+    Must match shell compute_signature normalization."""
     return json.dumps(tool_input, sort_keys=True, separators=(",", ":"))
 
 
 def compute_signature(tool_name, tool_input):
-    """Compute a hash signature for a tool call."""
+    """Compute a hash signature for a tool call.
+    Must match shell compute_signature for the same logical input."""
     normalized = normalize_input(tool_input)
     combined = f"{tool_name}:{normalized}"
     return hashlib.sha256(combined.encode()).hexdigest()
@@ -55,7 +99,7 @@ def extract_tool_uses_and_results(messages):
     Extract all tool_use and tool_result blocks from the transcript.
     Returns:
         tool_calls: list of {id, name, input, signature, msg_idx, content_idx}
-        tool_results: dict of tool_use_id -> {msg_idx, content_idx}
+        tool_results: dict of tool_use_id -> {msg_idx, content_idx, is_error}
     """
     tool_calls = []
     tool_results = {}
@@ -65,7 +109,6 @@ def extract_tool_uses_and_results(messages):
         if data is None:
             continue
 
-        msg_type = data.get("type", "")
         message = data.get("message", {})
         content = message.get("content", [])
 
@@ -112,10 +155,9 @@ def count_turns_between(messages, idx1, idx2):
     return count
 
 
-def optimize_transcript(transcript_path, error_purge_turns=ERROR_PURGE_TURNS):
+def optimize_transcript(transcript_path):
     """
     Optimize a transcript JSONL file.
-
     Returns a dict with optimization stats.
     """
     messages = parse_transcript(transcript_path)
@@ -129,12 +171,10 @@ def optimize_transcript(transcript_path, error_purge_turns=ERROR_PURGE_TURNS):
     }
 
     # --- Phase 1: Deduplication ---
-    # Group tool calls by signature
     sig_groups = defaultdict(list)
     for tc in tool_calls:
         sig_groups[tc["signature"]].append(tc)
 
-    # For each group with duplicates, mark earlier ones for dedup
     dedup_targets = {}  # (msg_idx, content_idx) -> replacement block
     for sig, calls in sig_groups.items():
         if len(calls) <= 1:
@@ -142,7 +182,6 @@ def optimize_transcript(transcript_path, error_purge_turns=ERROR_PURGE_TURNS):
 
         # Sort by position in transcript (keep the LAST one)
         calls.sort(key=lambda c: (c["msg_idx"], c["content_idx"]))
-        keep_last = calls[-1]
 
         for call in calls[:-1]:
             if call["name"] in PROTECTED_TOOLS:
@@ -173,30 +212,30 @@ def optimize_transcript(transcript_path, error_purge_turns=ERROR_PURGE_TURNS):
             stats["bytes_saved"] += original_size
 
     # --- Phase 2: Error Input Purging ---
-    last_msg_idx = len(messages) - 1
-    for tc in tool_calls:
-        result_info = tool_results.get(tc["id"])
-        if not result_info or not result_info.get("is_error"):
-            continue
-        if tc["name"] in PROTECTED_TOOLS:
-            continue
+    if ERROR_PURGE_ENABLED:
+        last_msg_idx = len(messages) - 1
+        for tc in tool_calls:
+            result_info = tool_results.get(tc["id"])
+            if not result_info or not result_info.get("is_error"):
+                continue
+            if tc["name"] in PROTECTED_TOOLS:
+                continue
 
-        # Count turns between the error and now
-        turn_age = count_turns_between(messages, result_info["msg_idx"], last_msg_idx)
-        if turn_age >= error_purge_turns:
-            key = (tc["msg_idx"], tc["content_idx"])
-            if key not in dedup_targets:  # Don't double-process
-                original_size = len(json.dumps(tc["input"]))
+            turn_age = count_turns_between(messages, result_info["msg_idx"], last_msg_idx)
+            if turn_age >= ERROR_PURGE_TURNS:
+                key = (tc["msg_idx"], tc["content_idx"])
+                if key not in dedup_targets:
+                    original_size = len(json.dumps(tc["input"]))
 
-                dedup_targets[key] = {
-                    "type": "tool_use",
-                    "id": tc["id"],
-                    "name": tc["name"],
-                    "input": {"_dcp_note": f"input removed — error occurred {turn_age} turns ago"},
-                }
+                    dedup_targets[key] = {
+                        "type": "tool_use",
+                        "id": tc["id"],
+                        "name": tc["name"],
+                        "input": {"_dcp_note": f"input removed — error occurred {turn_age} turns ago"},
+                    }
 
-                stats["error_inputs_purged"] += 1
-                stats["bytes_saved"] += original_size
+                    stats["error_inputs_purged"] += 1
+                    stats["bytes_saved"] += original_size
 
     # --- Phase 3: Apply Changes ---
     if not dedup_targets:
@@ -209,14 +248,21 @@ def optimize_transcript(transcript_path, error_purge_turns=ERROR_PURGE_TURNS):
         content = data.get("message", {}).get("content", [])
         if content_idx < len(content):
             content[content_idx] = replacement
-            # Update the raw line
             messages[msg_idx]["raw"] = json.dumps(data, separators=(",", ":"))
 
-    # Write back
-    with open(transcript_path, "w", encoding="utf-8") as f:
-        for msg in messages:
-            f.write(msg["raw"])
-            f.write("\n")
+    # Atomic write: write to .tmp then replace
+    tmp_path = f"{transcript_path}.dcp-tmp"
+    try:
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            for msg in messages:
+                f.write(msg["raw"])
+                f.write("\n")
+        os.replace(tmp_path, transcript_path)
+    except Exception as e:
+        # Clean up tmp file on failure
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
 
     return stats
 

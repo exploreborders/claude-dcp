@@ -8,10 +8,80 @@ if ! command -v jq &>/dev/null; then
   exit 0
 fi
 
+# --- Configuration ---
+# Load config.json from the plugin directory, fall back to defaults.
+# Priority: environment variables > config.json > hardcoded defaults.
+
+_dcp_plugin_root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+_dcp_config_file="${_dcp_plugin_root}/config.json"
+
+# Defaults
+DCP_ERROR_PURGE_TURNS=${DCP_ERROR_PURGE_TURNS:-4}
+DCP_DEDUP_ENABLED=${DCP_DEDUP_ENABLED:-true}
+DCP_ERROR_PURGE_ENABLED=${DCP_ERROR_PURGE_ENABLED:-true}
+DCP_CONTEXT_NUDGE_ENABLED=${DCP_CONTEXT_NUDGE_ENABLED:-true}
+DCP_WARN_THRESHOLD_TOKENS=${DCP_WARN_THRESHOLD_TOKENS:-150000}
+DCP_URGENT_THRESHOLD_TOKENS=${DCP_URGENT_THRESHOLD_TOKENS:-180000}
+DCP_DUPLICATE_BLOCK_WINDOW=${DCP_DUPLICATE_BLOCK_WINDOW:-60}
+DCP_MAX_TOOL_LOG_ENTRIES=${DCP_MAX_TOOL_LOG_ENTRIES:-500}
+DCP_PROTECTED_TOOLS="Write Edit ExitPlanMode TodoWrite AskUserQuestion Task"
+
+# Load from config.json if it exists (values NOT set by env vars)
+if [ -f "$_dcp_config_file" ]; then
+  _cfg() {
+    jq -r "$1 // empty" "$_dcp_config_file" 2>/dev/null
+  }
+  val=$(_cfg '.error_purge_turns');        [ -n "$val" ] && DCP_ERROR_PURGE_TURNS="$val"
+  val=$(_cfg '.duplicate_block_window_seconds'); [ -n "$val" ] && DCP_DUPLICATE_BLOCK_WINDOW="$val"
+  val=$(_cfg '.max_tool_log_entries');      [ -n "$val" ] && DCP_MAX_TOOL_LOG_ENTRIES="$val"
+  val=$(_cfg '.warn_threshold_tokens');     [ -n "$val" ] && DCP_WARN_THRESHOLD_TOKENS="$val"
+  val=$(_cfg '.urgent_threshold_tokens');   [ -n "$val" ] && DCP_URGENT_THRESHOLD_TOKENS="$val"
+
+  # Boolean fields
+  for field in dedup_enabled error_purge_enabled context_nudge_enabled; do
+    upper=$(echo "$field" | tr '[:lower:]' '[:upper:]')
+    env_name="DCP_${upper}"
+    # Only override if not already set by env var
+    if [ -z "$(eval echo \${${env_name}_SET:-})" ]; then
+      val=$(_cfg ".$field")
+      if [ "$val" = "true" ]; then
+        eval "$env_name=true"
+      elif [ "$val" = "false" ]; then
+        eval "$env_name=false"
+      fi
+    fi
+  done
+
+  # Protected tools from config
+  val=$(_cfg '.protected_tools | join(" ")')
+  if [ -n "$val" ]; then
+    DCP_PROTECTED_TOOLS="$val"
+  fi
+
+  unset -f _cfg
+fi
+
+# --- Utility Functions ---
+
+# Sanitize session_id to prevent path traversal
+sanitize_session_id() {
+  echo "$1" | tr -cd 'a-zA-Z0-9_-' | head -c 64
+}
+
+# Check if a tool is in the protected list
+is_protected_tool() {
+  local tool_name="$1"
+  for t in $DCP_PROTECTED_TOOLS; do
+    [ "$t" = "$tool_name" ] && return 0
+  done
+  return 1
+}
+
 # Get or create the session state directory
 # Uses CLAUDE_PLUGIN_DATA if available, falls back to a temp-based location
 get_state_dir() {
-  local session_id="$1"
+  local session_id
+  session_id=$(sanitize_session_id "$1")
   local base_dir
 
   if [ -n "$CLAUDE_PLUGIN_DATA" ]; then
@@ -28,13 +98,16 @@ get_state_dir() {
 # Compute a normalized signature for a tool call
 # Args: tool_name, tool_input_json
 # Output: sha256 hash
+#
+# Normalization: sort keys recursively, strip null values.
+# Must match Python compute_signature for the same logical input.
 compute_signature() {
   local tool_name="$1"
   local tool_input="$2"
 
-  # Normalize: sort keys recursively, strip null/undefined values
+  # Normalize: sort keys recursively, strip null values
   local normalized
-  normalized=$(echo "$tool_input" | jq -cS 'del(.. | .empty?)' 2>/dev/null || echo "$tool_input")
+  normalized=$(echo "$tool_input" | jq -cS 'del(.. | select(. == null))' 2>/dev/null || echo "$tool_input")
 
   # Combine tool name + normalized input and hash
   local combined="${tool_name}:${normalized}"
@@ -55,8 +128,13 @@ log_tool_call() {
   local timestamp
   timestamp=$(date +%s)
 
-  printf '{"signature":"%s","tool":"%s","id":"%s","ts":%d}\n' \
-    "$signature" "$tool_name" "$tool_id" "$timestamp" >> "$log_file"
+  # Use jq for safe JSON construction (no injection), compact format for grep
+  jq -nc \
+    --arg sig "$signature" \
+    --arg tool "$tool_name" \
+    --arg id "$tool_id" \
+    --argjson ts "$timestamp" \
+    '{signature: $sig, tool: $tool, id: $id, ts: $ts}' >> "$log_file"
 }
 
 # Check if a tool call signature already exists in the log
@@ -85,12 +163,13 @@ log_error() {
   local timestamp
   timestamp=$(date +%s)
 
-  # Truncate tool_input to avoid huge log files
-  local truncated_input
-  truncated_input=$(echo "$tool_input" | jq -c '.' 2>/dev/null | head -c 500)
-
-  printf '{"tool":"%s","id":"%s","turn":%d,"ts":%d}\n' \
-    "$tool_name" "$tool_id" "$turn" "$timestamp" >> "$log_file"
+  # Use jq for safe JSON construction (no injection), compact format for grep
+  jq -nc \
+    --arg tool "$tool_name" \
+    --arg id "$tool_id" \
+    --argjson turn "$turn" \
+    --argjson ts "$timestamp" \
+    '{tool: $tool, id: $id, turn: $turn, ts: $ts}' >> "$log_file"
 }
 
 # Get current turn counter
