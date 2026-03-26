@@ -1,0 +1,10 @@
+{
+  "name": "claude-dcp",
+  "version": "0.1.0",
+  "description": "Dynamic Context Pruning for Claude Code — intelligently manages conversation context to optimize token usage",
+  "author": {
+    "name": "claude-dcp"
+  },
+  "homepage": "https://github.com/claude-dcp/claude-dcp",
+  "license": "AGPL-3.0-or-later"
+}

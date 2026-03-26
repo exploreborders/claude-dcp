@@ -1,0 +1,18 @@
+{
+  "error_purge_turns": 4,
+  "dedup_enabled": true,
+  "error_purge_enabled": true,
+  "context_nudge_enabled": true,
+  "protected_tools": [
+    "Write",
+    "Edit",
+    "ExitPlanMode",
+    "TodoWrite",
+    "AskUserQuestion",
+    "Task"
+  ],
+  "warn_threshold_tokens": 150000,
+  "urgent_threshold_tokens": 180000,
+  "duplicate_block_window_seconds": 60,
+  "max_tool_log_entries": 500
+}
