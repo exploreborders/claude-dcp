@@ -13,96 +13,18 @@ This runs BEFORE compaction, so Claude Code reads the pruned version.
 import json
 import os
 import sys
-import hashlib
 from collections import defaultdict
 from typing import Any
 
-# --- Configuration ---
-# Load from config.json (plugin root), fall back to env vars, then defaults.
+# Allow importing sibling modules
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-CONFIG_PATH = os.path.join(
-    os.environ.get("CLAUDE_PLUGIN_ROOT", os.path.dirname(os.path.abspath(__file__))),
-    "..", "config.json"
+from lib import (
+    ERROR_PURGE_ENABLED,
+    ERROR_PURGE_TURNS,
+    PROTECTED_TOOLS,
+    compute_signature,
 )
-
-
-def load_config() -> dict[str, Any]:
-    """Load configuration from config.json, with env var overrides."""
-    config: dict[str, Any] = {
-        "error_purge_turns": 4,
-        "error_purge_enabled": True,
-        "protected_tools": ["Write", "Edit", "ExitPlanMode", "TodoWrite", "AskUserQuestion", "Task"],
-    }
-
-    config_file = os.path.normpath(CONFIG_PATH)
-    _load_config_file(config, config_file)
-    _load_env_overrides(config)
-
-    return config
-
-
-def _load_config_file(config: dict[str, Any], config_file: str) -> None:
-    """Load configuration values from config.json file."""
-    if not os.path.isfile(config_file):
-        return
-
-    try:
-        with open(config_file, "r") as f:
-            file_config = json.load(f)
-        for key in ("error_purge_turns", "error_purge_enabled", "protected_tools"):
-            if key in file_config:
-                config[key] = file_config[key]
-    except (json.JSONDecodeError, OSError):
-        pass
-
-
-def _load_env_overrides(config: dict[str, Any]) -> None:
-    """Apply environment variable overrides to config."""
-    if "DCP_ERROR_PURGE_TURNS" in os.environ:
-        try:
-            config["error_purge_turns"] = int(os.environ["DCP_ERROR_PURGE_TURNS"])
-        except ValueError:
-            pass
-    if "DCP_ERROR_PURGE_ENABLED" in os.environ:
-        config["error_purge_enabled"] = os.environ["DCP_ERROR_PURGE_ENABLED"].lower() == "true"
-
-
-CFG = load_config()
-ERROR_PURGE_TURNS: int = CFG["error_purge_turns"]
-ERROR_PURGE_ENABLED: bool = CFG["error_purge_enabled"]
-PROTECTED_TOOLS: set[str] = set(CFG["protected_tools"])
-
-
-def _strip_nulls(obj: Any) -> Any:
-    """Recursively strip null values from dicts and lists.
-
-    Matches shell jq behavior: 'del(.. | select(. == null))'
-    """
-    if isinstance(obj, dict):
-        return {k: _strip_nulls(v) for k, v in obj.items() if v is not None}
-    elif isinstance(obj, list):
-        return [_strip_nulls(v) for v in obj if v is not None]
-    return obj
-
-
-def normalize_input(tool_input: Any) -> str:
-    """Normalize tool input for consistent comparison.
-
-    Strips null values and sorts keys recursively to match
-    shell compute_signature normalization (jq -cS 'del(.. | select(. == null))').
-    """
-    cleaned = _strip_nulls(tool_input)
-    return json.dumps(cleaned, sort_keys=True, separators=(",", ":"))
-
-
-def compute_signature(tool_name: str, tool_input: Any) -> str:
-    """Compute a hash signature for a tool call.
-
-    Must match shell compute_signature for the same logical input.
-    """
-    normalized = normalize_input(tool_input)
-    combined = f"{tool_name}:{normalized}"
-    return hashlib.sha256(combined.encode()).hexdigest()
 
 
 def parse_transcript(transcript_path: str) -> list[dict[str, Any]]:

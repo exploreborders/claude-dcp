@@ -16,11 +16,11 @@ SCRIPTS_DIR = PROJECT_ROOT / "scripts"
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
-def _load_optimizer_module():
-    """Load pre-compact-optimize.py as a module (hyphenated filename workaround)."""
+def _load_module(name: str, filename: str):
+    """Load a Python file as a module (handles hyphenated filenames)."""
     spec = importlib.util.spec_from_file_location(
-        "optimizer",
-        str(SCRIPTS_DIR / "pre-compact-optimize.py"),
+        name,
+        str(SCRIPTS_DIR / filename),
     )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
@@ -28,9 +28,15 @@ def _load_optimizer_module():
 
 
 @pytest.fixture(scope="session")
+def lib():
+    """Load lib.py module once for all tests."""
+    return _load_module("lib", "lib.py")
+
+
+@pytest.fixture(scope="session")
 def optimizer():
-    """Load the optimizer module once for all tests."""
-    return _load_optimizer_module()
+    """Load pre-compact-optimize.py as a module (hyphenated filename workaround)."""
+    return _load_module("optimizer", "pre-compact-optimize.py")
 
 
 @pytest.fixture

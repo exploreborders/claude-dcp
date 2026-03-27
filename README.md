@@ -14,6 +14,26 @@ Inspired by [opencode-dynamic-context-pruning](https://github.com/Opencode-DCP/o
 | **Context Nudges** | Warns when context is getting large via `UserPromptSubmit` hook |
 | **Post-Compact Reminders** | Re-injects key context after compaction via `PostCompact` hook |
 
+## Platform Support
+
+| Platform | Status | Notes |
+|----------|--------|-------|
+| **macOS** | Fully supported | Requires Python 3.9+ |
+| **Linux** | Fully supported | Requires Python 3.9+ |
+| **Windows (WSL2)** | Fully supported | Run Claude Code inside WSL2 |
+| **Windows (native)** | Limited | See note below |
+
+> **Windows native note**: Claude Code's hook system currently has known issues on Windows
+> native ([#19012](https://github.com/anthropics/claude-code/issues/19012),
+> [#25832](https://github.com/anthropics/claude-code/issues/25832)).
+> This affects **all** plugins with hooks, including official Anthropic plugins.
+> Hooks may fail silently or fire intermittently. Use WSL2 for full functionality.
+
+## Requirements
+
+- Python 3.9+
+- Claude Code CLI
+
 ## Installation
 
 ### From Plugin Directory (Development)
@@ -111,27 +131,28 @@ claude-dcp/
 ├── .claude-plugin/
 │   └── plugin.json              # Plugin manifest
 ├── hooks/
-│   └── hooks.json               # Hook registrations
+│   └── hooks.json               # Hook registrations (Python commands)
 ├── scripts/
-│   ├── lib.sh                   # Shared utilities
-│   ├── log-tool-call.sh         # PostToolUse: track tool signatures
-│   ├── dedup-check.sh           # PreToolUse: block duplicates
-│   ├── log-error.sh             # PostToolUseFailure: track errors
-│   ├── pre-compact-optimize.sh  # PreCompact: transcript optimizer (wrapper)
-│   ├── pre-compact-optimize.py  # PreCompact: transcript optimizer (logic)
-│   ├── post-compact-reminder.sh # PostCompact: context re-injection
-│   └── context-nudge.sh         # UserPromptSubmit: token estimation
+│   ├── lib.py                   # Shared Python utilities
+│   ├── log_tool_call.py         # PostToolUse: track tool signatures
+│   ├── dedup_check.py           # PreToolUse: block duplicates
+│   ├── log_error.py             # PostToolUseFailure: track errors
+│   ├── pre-compact-optimize.py  # PreCompact: transcript optimizer
+│   ├── post_compact_reminder.py # PostCompact: context re-injection
+│   ├── context_nudge.py         # UserPromptSubmit: token estimation
+│   └── session_cleanup.py       # SessionEnd: cleanup state
 ├── skills/
 │   ├── dcp-context/SKILL.md     # Context report skill
 │   └── dcp-sweep/SKILL.md       # Manual cleanup skill
-└── config.json                  # Default configuration
+├── config.json                  # Default configuration
+└── tests/                       # pytest test suite
 ```
 
 ### State Storage
 
 Per-session state is stored at:
 - `${CLAUDE_PLUGIN_DATA}/sessions/{session_id}/` (preferred)
-- `/tmp/claude-dcp/sessions/{session_id}/` (fallback)
+- `/tmp/claude-dcp/sessions/{session_id}/` (fallback on Unix)
 
 Files:
 - `tool-log.jsonl` — append-only log of tool call signatures
@@ -154,6 +175,7 @@ Files:
 - **Transcript format dependency**: The optimizer assumes a specific JSONL format. Claude Code updates may change this format.
 - **Token estimation is rough**: Based on character count (~4 chars/token), not actual tokenization.
 - **Dedup window**: Duplicates are only blocked within 60 seconds of the original call.
+- **Windows native**: Hook system has known platform bugs (see [Platform Support](#platform-support) above).
 
 ## License
 

@@ -1,54 +1,49 @@
 {
-  "description": "Dynamic Context Pruning hooks — deduplication, error purging, transcript optimization",
+  "description": "Dynamic Context Pruning — Reduce token usage through smart transcript optimization",
   "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Bash|Read|Glob|Grep|WebFetch|Edit|Write|mcp__.*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/log-tool-call.sh"
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Bash|Read|Glob|Grep|WebFetch|Edit|Write|mcp__.*",
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/dedup-check.sh"
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/dedup_check.py",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Bash|Read|Glob|Grep|WebFetch|Edit|Write|mcp__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/log_tool_call.py",
+            "timeout": 5
           }
         ]
       }
     ],
     "PostToolUseFailure": [
       {
+        "matcher": "Bash|Read|Glob|Grep|WebFetch|Edit|Write|mcp__.*",
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/log-error.sh"
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/log_error.py",
+            "timeout": 5
           }
         ]
       }
     ],
     "PreCompact": [
       {
-        "matcher": "auto",
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pre-compact-optimize.sh"
-          }
-        ]
-      },
-      {
-        "matcher": "manual",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pre-compact-optimize.sh"
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/pre-compact-optimize.py",
+            "timeout": 30
           }
         ]
       }
@@ -58,17 +53,20 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/post-compact-reminder.sh"
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/post_compact_reminder.py",
+            "timeout": 5
           }
         ]
       }
     ],
     "UserPromptSubmit": [
       {
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/context-nudge.sh"
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/context_nudge.py",
+            "timeout": 5
           }
         ]
       }
@@ -78,7 +76,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-cleanup.sh"
+            "command": "python3 ${CLAUDE_PLUGIN_ROOT}/scripts/session_cleanup.py",
+            "timeout": 5
           }
         ]
       }
