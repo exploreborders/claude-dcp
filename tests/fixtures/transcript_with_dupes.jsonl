@@ -1,0 +1,12 @@
+{"type":"human","message":{"role":"user","content":"List files"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_01A","name":"Bash","input":{"command":"ls /tmp"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_result","tool_use_id":"toolu_01A","content":"file1.txt","is_error":false}]}}
+{"type":"human","message":{"role":"user","content":"List files again"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_02B","name":"Bash","input":{"command":"ls /tmp"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_result","tool_use_id":"toolu_02B","content":"file1.txt","is_error":false}]}}
+{"type":"human","message":{"role":"user","content":"And again"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_03C","name":"Bash","input":{"command":"ls /tmp"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_result","tool_use_id":"toolu_03C","content":"file1.txt","is_error":false}]}}
+{"type":"human","message":{"role":"user","content":"Read a file"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_04D","name":"Read","input":{"file_path":"/tmp/file1.txt"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_result","tool_use_id":"toolu_04D","content":"Hello","is_error":false}]}}

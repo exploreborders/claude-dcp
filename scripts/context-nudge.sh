@@ -25,14 +25,23 @@ CHAR_COUNT=$(wc -c < "$TRANSCRIPT_PATH" | tr -d ' ')
 # Average ~4 chars per token for JSONL (structured data with quotes, braces, etc.)
 ESTIMATED_TOKENS=$((CHAR_COUNT / 4))
 
+# Calculate percentage of a typical 200K context window
+CONTEXT_WINDOW=200000
+PERCENTAGE=$((ESTIMATED_TOKENS * 100 / CONTEXT_WINDOW))
+
 if [ "$ESTIMATED_TOKENS" -ge "$DCP_URGENT_THRESHOLD_TOKENS" ]; then
   jq -n \
-    --arg msg "[claude-dcp WARNING] Context is very large (~$((ESTIMATED_TOKENS / 1000))K tokens estimated). Consider using /compact now to free up context space. Stale context may cause degraded responses." \
+    --arg msg "[claude-dcp WARNING] Context is very large (~${ESTIMATED_TOKENS} tokens, ~${PERCENTAGE}% of context window). Consider using /compact now to free up context space. Stale context may cause degraded responses." \
     '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: $msg}}'
   exit 0
 elif [ "$ESTIMATED_TOKENS" -ge "$DCP_WARN_THRESHOLD_TOKENS" ]; then
   jq -n \
-    --arg msg "[claude-dcp] Context is getting large (~$((ESTIMATED_TOKENS / 1000))K tokens estimated). You may want to use /compact soon to free space." \
+    --arg msg "[claude-dcp] Context is getting large (~${ESTIMATED_TOKENS} tokens, ~${PERCENTAGE}% of context window). You may want to use /compact soon to free space." \
+    '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: $msg}}'
+  exit 0
+elif [ "$ESTIMATED_TOKENS" -ge "$DCP_INFO_THRESHOLD_TOKENS" ]; then
+  jq -n \
+    --arg msg "[claude-dcp] Context is growing (~${ESTIMATED_TOKENS} tokens, ~${PERCENTAGE}% of context window). Monitor usage." \
     '{hookSpecificOutput: {hookEventName: "UserPromptSubmit", additionalContext: $msg}}'
   exit 0
 fi

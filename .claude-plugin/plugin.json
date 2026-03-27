@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Dynamic Context Pruning for Claude Code — intelligently manages conversation context to optimize token usage",
   "author": {
-    "name": "claude-dcp"
+    "name": "Christian Hein"
   },
   "homepage": "https://github.com/exploreborders/claude-dcp",
   "repository": "https://github.com/exploreborders/claude-dcp",

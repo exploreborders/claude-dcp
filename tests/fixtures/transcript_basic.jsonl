@@ -1,0 +1,8 @@
+{"type":"human","message":{"role":"user","content":"List files in /tmp"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_01A","name":"Bash","input":{"command":"ls /tmp"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_result","tool_use_id":"toolu_01A","content":"file1.txt\nfile2.txt","is_error":false}]}}
+{"type":"human","message":{"role":"user","content":"Read file1.txt"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_02B","name":"Read","input":{"file_path":"/tmp/file1.txt"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_result","tool_use_id":"toolu_02B","content":"Hello world","is_error":false}]}}
+{"type":"human","message":{"role":"user","content":"Thanks"}}
+{"type":"assistant","message":{"role":"assistant","content":"You're welcome!"}}

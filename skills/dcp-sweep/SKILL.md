@@ -15,7 +15,7 @@ Steps:
    - Find the transcript path from the most recent session
    - Run deduplication: identify repeated tool calls with identical arguments
    - Report what would be cleaned up
-3. Clear the tool log and error log for the current session (reset tracking)
+3. Reset the tool log, error log, and turn counter for the current session (trims to last 50 entries, resets counter to 0)
 4. Report the cleanup results
 
 After cleanup, suggest running /compact if context is still large.

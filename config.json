@@ -11,6 +11,7 @@
     "AskUserQuestion",
     "Task"
   ],
+  "info_threshold_tokens": 120000,
   "warn_threshold_tokens": 150000,
   "urgent_threshold_tokens": 180000,
   "duplicate_block_window_seconds": 60,

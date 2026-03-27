@@ -21,6 +21,9 @@ if [ -f "$LOG_FILE" ]; then
   fi
 fi
 
+# Trim error-log.jsonl to last 100 entries on session end
+trim_error_log "$STATE_DIR" 100
+
 # Reset turn counter on session end (fresh start next session)
 echo "0" > "${STATE_DIR}/turn-counter"
 

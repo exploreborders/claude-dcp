@@ -1,0 +1,9 @@
+{"type":"human","message":{"role":"user","content":"First valid line"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_01A","name":"Bash","input":{"command":"ls"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_result","tool_use_id":"toolu_01A","content":"output","is_error":false}]}}
+
+this is not valid json {broken
+
+{"type":"human","message":{"role":"user","content":"After malformed line"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_02B","name":"Read","input":{"file_path":"/tmp/test"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_result","tool_use_id":"toolu_02B","content":"data","is_error":false}]}}

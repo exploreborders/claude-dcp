@@ -5,6 +5,7 @@
 # Ensure jq is available
 if ! command -v jq &>/dev/null; then
   echo "claude-dcp: jq is required but not installed" >&2
+  # Exit 0 to not block Claude Code — hooks must never be blocking
   exit 0
 fi
 
@@ -20,6 +21,7 @@ DCP_ERROR_PURGE_TURNS=${DCP_ERROR_PURGE_TURNS:-4}
 DCP_DEDUP_ENABLED=${DCP_DEDUP_ENABLED:-true}
 DCP_ERROR_PURGE_ENABLED=${DCP_ERROR_PURGE_ENABLED:-true}
 DCP_CONTEXT_NUDGE_ENABLED=${DCP_CONTEXT_NUDGE_ENABLED:-true}
+DCP_INFO_THRESHOLD_TOKENS=${DCP_INFO_THRESHOLD_TOKENS:-120000}
 DCP_WARN_THRESHOLD_TOKENS=${DCP_WARN_THRESHOLD_TOKENS:-150000}
 DCP_URGENT_THRESHOLD_TOKENS=${DCP_URGENT_THRESHOLD_TOKENS:-180000}
 DCP_DUPLICATE_BLOCK_WINDOW=${DCP_DUPLICATE_BLOCK_WINDOW:-60}
@@ -34,20 +36,20 @@ if [ -f "$_dcp_config_file" ]; then
   val=$(_cfg '.error_purge_turns');        [ -n "$val" ] && DCP_ERROR_PURGE_TURNS="$val"
   val=$(_cfg '.duplicate_block_window_seconds'); [ -n "$val" ] && DCP_DUPLICATE_BLOCK_WINDOW="$val"
   val=$(_cfg '.max_tool_log_entries');      [ -n "$val" ] && DCP_MAX_TOOL_LOG_ENTRIES="$val"
+  val=$(_cfg '.info_threshold_tokens');     [ -n "$val" ] && DCP_INFO_THRESHOLD_TOKENS="$val"
   val=$(_cfg '.warn_threshold_tokens');     [ -n "$val" ] && DCP_WARN_THRESHOLD_TOKENS="$val"
   val=$(_cfg '.urgent_threshold_tokens');   [ -n "$val" ] && DCP_URGENT_THRESHOLD_TOKENS="$val"
 
-  # Boolean fields
+  # Boolean fields — only override if the env var was NOT explicitly set
   for field in dedup_enabled error_purge_enabled context_nudge_enabled; do
     upper=$(echo "$field" | tr '[:lower:]' '[:upper:]')
     env_name="DCP_${upper}"
-    # Only override if not already set by env var
-    if [ -z "$(eval echo \${${env_name}_SET:-})" ]; then
+    # Check if the env var was explicitly set (not just defaulted via ${VAR:-default})
+    # If printenv returns non-empty, the user set it explicitly
+    if ! printenv "$env_name" >/dev/null 2>&1; then
       val=$(_cfg ".$field")
-      if [ "$val" = "true" ]; then
-        eval "$env_name=true"
-      elif [ "$val" = "false" ]; then
-        eval "$env_name=false"
+      if [ "$val" = "true" ] || [ "$val" = "false" ]; then
+        declare -g "$env_name=$val"
       fi
     fi
   done
@@ -65,7 +67,7 @@ fi
 
 # Sanitize session_id to prevent path traversal
 sanitize_session_id() {
-  echo "$1" | tr -cd 'a-zA-Z0-9_-' | head -c 64
+  printf '%s' "$1" | tr -cd 'a-zA-Z0-9_-' | head -c 64
 }
 
 # Check if a tool is in the protected list
@@ -95,6 +97,18 @@ get_state_dir() {
   echo "$state_dir"
 }
 
+# Compute SHA-256 hash, portable across Linux (sha256sum) and macOS (shasum)
+_compute_hash() {
+  if command -v sha256sum &>/dev/null; then
+    sha256sum | cut -d' ' -f1
+  elif command -v shasum &>/dev/null; then
+    shasum -a 256 | cut -d' ' -f1
+  else
+    echo "claude-dcp: no SHA-256 tool found (need sha256sum or shasum)" >&2
+    return 1
+  fi
+}
+
 # Compute a normalized signature for a tool call
 # Args: tool_name, tool_input_json
 # Output: sha256 hash
@@ -111,7 +125,7 @@ compute_signature() {
 
   # Combine tool name + normalized input and hash
   local combined="${tool_name}:${normalized}"
-  echo -n "$combined" | shasum -a 256 | cut -d' ' -f1
+  echo -n "$combined" | _compute_hash
 }
 
 # Log a tool call to the session state file
@@ -146,7 +160,7 @@ check_duplicate() {
   local log_file="${state_dir}/tool-log.jsonl"
   [ -f "$log_file" ] || return 1
 
-  grep -q "\"signature\":\"${signature}\"" "$log_file"
+  grep -F -q "\"signature\":\"${signature}\"" "$log_file"
 }
 
 # Log an error with turn counter
@@ -202,4 +216,32 @@ count_lines() {
   else
     echo 0
   fi
+}
+
+# Trim a JSONL log file to prevent unbounded growth
+# Args: log_file, max_entries
+trim_log_file() {
+  local log_file="$1"
+  local max_entries="${2:-$DCP_MAX_TOOL_LOG_ENTRIES}"
+
+  if [ ! -f "$log_file" ]; then
+    return 0
+  fi
+
+  local line_count
+  line_count=$(count_lines "$log_file")
+  if [ "$line_count" -gt "$max_entries" ]; then
+    local trimmed_count=$((max_entries * 6 / 10))
+    tail -n "$trimmed_count" "$log_file" > "${log_file}.tmp"
+    mv "${log_file}.tmp" "$log_file"
+  fi
+}
+
+# Trim error-log.jsonl to prevent unbounded growth
+trim_error_log() {
+  local state_dir="$1"
+  local max_entries="${2:-$DCP_MAX_TOOL_LOG_ENTRIES}"
+  local log_file="${state_dir}/error-log.jsonl"
+
+  trim_log_file "$log_file" "$max_entries"
 }

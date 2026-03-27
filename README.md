@@ -58,13 +58,14 @@ Before Claude Code runs compaction, the `PreCompact` hook optimizes the transcri
 1. **Deduplication**: Finds tool calls with identical signatures and replaces earlier outputs with `[Output deduplicated]`
 2. **Error Purging**: Replaces inputs from errored tools older than N turns with `[input removed]` (error output preserved)
 
-This runs on auto-compaction only (not manual `/compact`).
+This runs on both auto-compaction and manual `/compact`.
 
 ### Context Nudges
 
-The `UserPromptSubmit` hook estimates token usage from transcript line count and warns:
-- **150K+ tokens**: Suggests compaction
-- **180K+ tokens**: Urgently recommends compaction
+The `UserPromptSubmit` hook estimates token usage from transcript character count (~4 chars/token heuristic) and warns:
+- **120K+ tokens**: Info — context is growing
+- **150K+ tokens**: Warn — suggests compaction
+- **180K+ tokens**: Urgent — strongly recommends compaction
 
 ## Configuration
 
@@ -77,6 +78,7 @@ Edit `config.json` in the plugin directory:
   "error_purge_enabled": true,
   "context_nudge_enabled": true,
   "protected_tools": ["Write", "Edit", "ExitPlanMode", "TodoWrite", "AskUserQuestion", "Task"],
+  "info_threshold_tokens": 120000,
   "warn_threshold_tokens": 150000,
   "urgent_threshold_tokens": 180000,
   "duplicate_block_window_seconds": 60,
@@ -91,6 +93,9 @@ Environment variables (override config):
 | `DCP_ERROR_PURGE_TURNS` | Turns before error inputs are purged | `4` |
 | `DCP_DEDUP_ENABLED` | Enable/disable deduplication | `true` |
 | `DCP_ERROR_PURGE_ENABLED` | Enable/disable error purging | `true` |
+| `DCP_CONTEXT_NUDGE_ENABLED` | Enable/disable context nudges | `true` |
+| `DCP_WARN_THRESHOLD_TOKENS` | Token count for warning nudge | `150000` |
+| `DCP_URGENT_THRESHOLD_TOKENS` | Token count for urgent nudge | `180000` |
 
 ## Skills
 
@@ -147,7 +152,7 @@ Files:
 
 - **No custom compress tool**: Claude Code doesn't support custom tool registration. Use `/compact` or let auto-compaction trigger optimization.
 - **Transcript format dependency**: The optimizer assumes a specific JSONL format. Claude Code updates may change this format.
-- **Token estimation is rough**: Based on line count heuristics, not actual tokenization.
+- **Token estimation is rough**: Based on character count (~4 chars/token), not actual tokenization.
 - **Dedup window**: Duplicates are only blocked within 60 seconds of the original call.
 
 ## License

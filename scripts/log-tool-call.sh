@@ -27,8 +27,8 @@ if [ -f "$LOG_FILE" ]; then
   LINE_COUNT=$(count_lines "$LOG_FILE")
   if [ "$LINE_COUNT" -gt "$DCP_MAX_TOOL_LOG_ENTRIES" ]; then
     # Write trimmed file to tmp, then atomic rename to avoid race conditions
-    local_trimmed=$((DCP_MAX_TOOL_LOG_ENTRIES * 6 / 10))
-    tail -n "$local_trimmed" "$LOG_FILE" > "${LOG_FILE}.tmp"
+    trimmed_count=$((DCP_MAX_TOOL_LOG_ENTRIES * 6 / 10))
+    tail -n "$trimmed_count" "$LOG_FILE" > "${LOG_FILE}.tmp"
     mv "${LOG_FILE}.tmp" "$LOG_FILE"
   fi
 fi

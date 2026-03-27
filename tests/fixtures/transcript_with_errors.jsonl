@@ -1,0 +1,12 @@
+{"type":"human","message":{"role":"user","content":"Run a failing command"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_01A","name":"Bash","input":{"command":"cat /nonexistent"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_result","tool_use_id":"toolu_01A","content":"cat: /nonexistent: No such file or directory","is_error":true}]}}
+{"type":"human","message":{"role":"user","content":"User turn 2"}}
+{"type":"assistant","message":{"role":"assistant","content":"Let me try something else"}}
+{"type":"human","message":{"role":"user","content":"User turn 3"}}
+{"type":"assistant","message":{"role":"assistant","content":"Still thinking"}}
+{"type":"human","message":{"role":"user","content":"User turn 4"}}
+{"type":"assistant","message":{"role":"assistant","content":"Almost there"}}
+{"type":"human","message":{"role":"user","content":"User turn 5 — old error should be purged now"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_use","id":"toolu_02B","name":"Read","input":{"file_path":"/tmp/file1.txt"}}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"tool_result","tool_use_id":"toolu_02B","content":"Hello","is_error":false}]}}
