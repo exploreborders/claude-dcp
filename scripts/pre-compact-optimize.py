@@ -52,7 +52,7 @@ def _load_config_file(config: dict[str, Any], config_file: str) -> None:
         for key in ("error_purge_turns", "error_purge_enabled", "protected_tools"):
             if key in file_config:
                 config[key] = file_config[key]
-    except (json.JSONDecodeError, IOError):
+    except (json.JSONDecodeError, OSError):
         pass
 
 

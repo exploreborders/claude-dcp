@@ -28,7 +28,7 @@ SIGNATURE=$(compute_signature "$TOOL_NAME" "$TOOL_INPUT")
 if check_duplicate "$STATE_DIR" "$SIGNATURE"; then
   # Find the most recent occurrence to reference
   LOG_FILE="${STATE_DIR}/tool-log.jsonl"
-  LAST_MATCH=$(grep "\"signature\":\"${SIGNATURE}\"" "$LOG_FILE" | tail -1)
+  LAST_MATCH=$(grep -F "\"signature\":\"${SIGNATURE}\"" "$LOG_FILE" | tail -1)
   LAST_TS=$(echo "$LAST_MATCH" | jq -r '.ts // 0')
   NOW=$(date +%s)
   AGE=$((NOW - LAST_TS))

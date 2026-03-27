@@ -2,6 +2,7 @@
 
 import json
 import os
+from pathlib import Path
 
 
 class TestDeduplicateToolCalls:
@@ -237,7 +238,3 @@ class TestOptimizeTranscriptEndToEnd:
         stats = optimizer.optimize_transcript(str(path))
 
         assert stats["bytes_saved"] > 0
-
-
-# Need Path import for the atomic write test
-from pathlib import Path

@@ -23,14 +23,6 @@ log_tool_call "$STATE_DIR" "$TOOL_NAME" "$TOOL_INPUT" "$TOOL_ID"
 
 # Trim tool log to prevent unbounded growth
 LOG_FILE="${STATE_DIR}/tool-log.jsonl"
-if [ -f "$LOG_FILE" ]; then
-  LINE_COUNT=$(count_lines "$LOG_FILE")
-  if [ "$LINE_COUNT" -gt "$DCP_MAX_TOOL_LOG_ENTRIES" ]; then
-    # Write trimmed file to tmp, then atomic rename to avoid race conditions
-    trimmed_count=$((DCP_MAX_TOOL_LOG_ENTRIES * 6 / 10))
-    tail -n "$trimmed_count" "$LOG_FILE" > "${LOG_FILE}.tmp"
-    mv "${LOG_FILE}.tmp" "$LOG_FILE"
-  fi
-fi
+trim_log_file "$LOG_FILE" "$DCP_MAX_TOOL_LOG_ENTRIES"
 
 exit 0
