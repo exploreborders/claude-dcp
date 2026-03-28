@@ -39,7 +39,7 @@ def main() -> None:
             "additionalContext": REMINDER,
         }
     }
-    print(result)
+    print(json.dumps(result))
     sys.exit(0)
 
 

@@ -238,7 +238,7 @@ def get_turn(state_dir: str) -> int:
     turn_file = os.path.join(state_dir, "turn-counter")
     if os.path.isfile(turn_file):
         try:
-            return int(open(turn_file).read().strip())
+            return int(Path(turn_file).read_text().strip())
         except (ValueError, OSError):
             return 0
     return 0

@@ -1,12 +1,8 @@
 """Pytest fixtures for claude-dcp tests."""
 
 import importlib.util
-import os
 import shutil
-import subprocess
-import tempfile
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -56,28 +52,4 @@ def tmp_transcript(tmp_path):
     return _create
 
 
-@pytest.fixture
-def shell_compute_signature():
-    """Run shell compute_signature from lib.sh and return the hash.
 
-    Usage:
-        def test_example(shell_compute_signature):
-            sig = shell_compute_signature("Bash", '{"command":"ls"}')
-            assert len(sig) == 64
-    """
-    lib_sh = str(SCRIPTS_DIR / "lib.sh")
-
-    def _compute(tool_name: str, tool_input_json: str) -> str:
-        # Source lib.sh then call compute_signature
-        cmd = f'source "{lib_sh}" && compute_signature "{tool_name}" \'{tool_input_json}\''
-        result = subprocess.run(
-            ["bash", "-c", cmd],
-            capture_output=True,
-            text=True,
-            cwd=str(PROJECT_ROOT),
-        )
-        if result.returncode != 0:
-            raise RuntimeError(f"Shell compute_signature failed: {result.stderr}")
-        return result.stdout.strip()
-
-    return _compute

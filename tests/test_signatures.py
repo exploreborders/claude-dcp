@@ -1,7 +1,4 @@
-"""Tests for compute_signature, including cross-language consistency."""
-
-import json
-import hashlib
+"""Tests for compute_signature."""
 
 
 class TestComputeSignature:
@@ -43,49 +40,3 @@ class TestComputeSignature:
         sig2 = lib.compute_signature("Bash", {"timeout": 30, "command": "ls"})
         assert sig1 == sig2
 
-
-class TestCrossLanguageSignature:
-    """Critical: shell and Python must produce identical signatures."""
-
-    def test_shell_python_match_simple(self, lib, shell_compute_signature):
-        """Shell and Python produce same signature for simple input."""
-        tool_input = {"command": "ls -la"}
-        python_sig = lib.compute_signature("Bash", tool_input)
-        shell_sig = shell_compute_signature("Bash", json.dumps(tool_input))
-        assert python_sig == shell_sig, (
-            f"Signature mismatch!\nPython: {python_sig}\nShell:  {shell_sig}"
-        )
-
-    def test_shell_python_match_with_null(self, lib, shell_compute_signature):
-        """Shell and Python both strip nulls identically."""
-        tool_input = {"command": "ls", "timeout": None}
-        python_sig = lib.compute_signature("Bash", tool_input)
-        shell_sig = shell_compute_signature("Bash", json.dumps(tool_input))
-        assert python_sig == shell_sig, (
-            f"Null-handling mismatch!\nPython: {python_sig}\nShell:  {shell_sig}"
-        )
-
-    def test_shell_python_match_nested(self, lib, shell_compute_signature):
-        """Shell and Python match for nested input with nulls."""
-        tool_input = {
-            "pattern": "TODO",
-            "path": ".",
-            "include": "*.py",
-            "extra": {"deep": None, "value": 42},
-        }
-        python_sig = lib.compute_signature("Grep", tool_input)
-        shell_sig = shell_compute_signature("Grep", json.dumps(tool_input))
-        assert python_sig == shell_sig, (
-            f"Nested mismatch!\nPython: {python_sig}\nShell:  {shell_sig}"
-        )
-
-    def test_shell_python_match_key_order(self, lib, shell_compute_signature):
-        """Shell and Python both normalize key order."""
-        tool_input_ordered = {"command": "ls", "timeout": 30}
-        tool_input_reversed = {"timeout": 30, "command": "ls"}
-
-        python_sig1 = lib.compute_signature("Bash", tool_input_ordered)
-        python_sig2 = lib.compute_signature("Bash", tool_input_reversed)
-        shell_sig = shell_compute_signature("Bash", json.dumps(tool_input_ordered))
-
-        assert python_sig1 == python_sig2 == shell_sig

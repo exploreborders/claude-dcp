@@ -21,8 +21,6 @@ from lib import (
     PROTECTED_TOOLS,
     compute_signature,
     get_state_dir,
-    log_tool_call,
-    normalize_input,
 )
 
 
@@ -37,8 +35,6 @@ def find_recent_duplicate(state_dir: str, signature: str, window: int) -> bool:
     Returns:
         True if a recent duplicate was found.
     """
-    import os
-
     log_file = os.path.join(state_dir, "tool-log.jsonl")
     if not os.path.isfile(log_file):
         return False
