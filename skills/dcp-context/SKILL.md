@@ -8,7 +8,10 @@ disable-model-invocation: true
 Analyze the current session's context usage and report on claude-dcp optimizations.
 
 Steps:
-1. Check if the session state directory exists at `~/.claude/plugins/data/claude-dcp/sessions/` (or `/tmp/claude-dcp/sessions/`)
+1. Discover the plugin data directory dynamically:
+   - Run `ls ~/.claude/plugins/data/` and find the directory matching `*dcp*` (e.g. `claude-dcp-inline`)
+   - The session state directory is `~/.claude/plugins/data/<matched-dir>/sessions/`
+   - Fallback: `/tmp/claude-dcp/sessions/`
 2. Count tool calls logged in the current session's `tool-log.jsonl`
 3. Count errors logged in `error-log.jsonl`
 4. Read cumulative optimization stats from `optimization-stats.json` (if it exists)

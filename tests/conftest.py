@@ -35,6 +35,24 @@ def optimizer():
     return _load_module("optimizer", "pre-compact-optimize.py")
 
 
+@pytest.fixture(scope="session")
+def context_nudge():
+    """Load context_nudge.py module once for all tests."""
+    return _load_module("context_nudge", "context_nudge.py")
+
+
+@pytest.fixture(scope="session")
+def dedup_check():
+    """Load dedup_check.py module once for all tests."""
+    return _load_module("dedup_check", "dedup_check.py")
+
+
+@pytest.fixture(scope="session")
+def track_turn():
+    """Load track_turn.py module once for all tests."""
+    return _load_module("track_turn", "track_turn.py")
+
+
 @pytest.fixture
 def tmp_transcript(tmp_path):
     """Create a temporary transcript file from fixture content.

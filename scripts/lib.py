@@ -195,28 +195,9 @@ def log_tool_call(
     return signature
 
 
-def check_duplicate(state_dir: str, signature: str) -> bool:
-    """Check if a tool call signature already exists in the log.
-
-    Returns:
-        True if duplicate found.
-    """
-    log_file = os.path.join(state_dir, "tool-log.jsonl")
-    if not os.path.isfile(log_file):
-        return False
-
-    marker = f'"signature":"{signature}"'
-    with open(log_file, "r", encoding="utf-8") as f:
-        for line in f:
-            if marker in line:
-                return True
-    return False
-
-
 def log_error(
     state_dir: str,
     tool_name: str,
-    tool_input: Any,
     tool_id: str = "",
 ) -> None:
     """Log an error with turn counter."""

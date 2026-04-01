@@ -23,9 +23,10 @@ DCP Status:
 - Previous tool outputs have been consolidated
 - File contents read before compaction may need to be re-read if needed
 - Tool call signatures are still tracked to prevent duplicate operations
+- If a tool call is blocked as a duplicate, do NOT rephrase or vary the command to work around it — respect the block and tell the user instead
 
 Action items:
-1. If continuing work on a task, re-read the relevant files with: `head -50 <file>` (not full file)
+1. If continuing work on a task, re-read relevant files using the Read tool with a line limit (not the full file)
 2. Check git status to confirm the state of the repository
 3. Review any pending TODOs from the pre-compaction context
 """

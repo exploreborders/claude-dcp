@@ -82,7 +82,7 @@ This runs on both auto-compaction and manual `/compact`.
 
 ### Context Nudges
 
-The `UserPromptSubmit` hook estimates token usage from transcript character count (~4 chars/token heuristic) and warns:
+The `UserPromptSubmit` hook estimates token usage from transcript UTF-8 byte count (~4 bytes/token heuristic) and warns:
 - **120K+ tokens**: Info — context is growing
 - **150K+ tokens**: Warn — suggests compaction
 - **180K+ tokens**: Urgent — strongly recommends compaction
@@ -139,7 +139,8 @@ claude-dcp/
 │   ├── log_error.py             # PostToolUseFailure: track errors
 │   ├── pre-compact-optimize.py  # PreCompact: transcript optimizer
 │   ├── post_compact_reminder.py # PostCompact: context re-injection
-│   ├── context_nudge.py         # UserPromptSubmit: token estimation
+│   ├── track_turn.py            # UserPromptSubmit: increment turn counter
+│   ├── context_nudge.py         # UserPromptSubmit: token estimation + nudges
 │   └── session_cleanup.py       # SessionEnd: cleanup state
 ├── skills/
 │   ├── dcp-context/SKILL.md     # Context report skill
@@ -173,7 +174,7 @@ Files:
 
 - **No custom compress tool**: Claude Code doesn't support custom tool registration. Use `/compact` or let auto-compaction trigger optimization.
 - **Transcript format dependency**: The optimizer assumes a specific JSONL format. Claude Code updates may change this format.
-- **Token estimation is rough**: Based on character count (~4 chars/token), not actual tokenization.
+- **Token estimation is rough**: Based on UTF-8 byte count (~4 bytes/token), not actual tokenization.
 - **Dedup window**: Duplicates are only blocked within 60 seconds of the original call.
 - **Windows native**: Hook system has known platform bugs (see [Platform Support](#platform-support) above).
 

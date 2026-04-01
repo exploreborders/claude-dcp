@@ -1,7 +1,6 @@
 """Tests for cumulative optimization stats tracking."""
 
 import json
-import os
 
 
 class TestOptimizationStats:
@@ -112,63 +111,28 @@ class TestFormatBytesSaved:
 class TestSavingsSummary:
     """Tests for get_savings_summary() in context_nudge.py."""
 
-    def test_no_session_id_returns_empty(self, lib):
+    def test_no_session_id_returns_empty(self, context_nudge):
         """Empty session_id returns empty string."""
-        # We need to test via context_nudge module
-        import importlib.util
-        scripts_dir = os.path.join(os.path.dirname(__file__), "..", "scripts")
-        spec = importlib.util.spec_from_file_location(
-            "context_nudge",
-            os.path.join(scripts_dir, "context_nudge.py"),
-        )
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-
-        result = mod.get_savings_summary({})
+        result = context_nudge.get_savings_summary({})
         assert result == ""
 
-    def test_no_stats_returns_empty(self, lib, tmp_path):
+    def test_no_stats_returns_empty(self, context_nudge, monkeypatch, tmp_path):
         """Session with no stats returns empty string."""
-        import importlib.util
-        scripts_dir = os.path.join(os.path.dirname(__file__), "..", "scripts")
-        spec = importlib.util.spec_from_file_location(
-            "context_nudge",
-            os.path.join(scripts_dir, "context_nudge.py"),
-        )
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
+        monkeypatch.setattr(context_nudge, "get_state_dir", lambda sid: str(tmp_path))
 
-        # Mock get_state_dir to return tmp_path
-        original_get_state_dir = mod.get_state_dir
-        mod.get_state_dir = lambda sid: str(tmp_path)
-
-        result = mod.get_savings_summary({"session_id": "test"})
+        result = context_nudge.get_savings_summary({"session_id": "test"})
         assert result == ""
 
-        mod.get_state_dir = original_get_state_dir
-
-    def test_savings_summary_format(self, lib, tmp_path):
+    def test_savings_summary_format(self, context_nudge, lib, monkeypatch, tmp_path):
         """Savings summary includes all expected information."""
-        import importlib.util
-        scripts_dir = os.path.join(os.path.dirname(__file__), "..", "scripts")
-        spec = importlib.util.spec_from_file_location(
-            "context_nudge",
-            os.path.join(scripts_dir, "context_nudge.py"),
-        )
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-
-        # Set up stats
         lib.update_optimization_stats(str(tmp_path), {
             "bytes_saved": 4096,
             "deduplicated": 3,
             "error_inputs_purged": 1,
         })
+        monkeypatch.setattr(context_nudge, "get_state_dir", lambda sid: str(tmp_path))
 
-        # Mock get_state_dir
-        mod.get_state_dir = lambda sid: str(tmp_path)
-
-        result = mod.get_savings_summary({"session_id": "test"})
+        result = context_nudge.get_savings_summary({"session_id": "test"})
         assert "DCP Savings:" in result
         assert "4.0KB saved" in result
         assert "3 duplicates removed" in result

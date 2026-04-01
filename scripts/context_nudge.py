@@ -23,6 +23,13 @@ from lib import (
 )
 
 
+DEDUP_RULE = (
+    "DCP rule: if a tool call is blocked as a duplicate, "
+    "do NOT rephrase or vary the command to work around it — "
+    "respect the block and tell the user instead."
+)
+
+
 def estimate_tokens(hook_input: dict) -> int:
     """Estimate token count from the hook input.
 
@@ -31,11 +38,11 @@ def estimate_tokens(hook_input: dict) -> int:
     # Try to use transcript if available
     transcript = hook_input.get("transcript", "")
     if transcript:
-        return len(transcript) // 4
+        return len(transcript.encode("utf-8")) // 4
 
     # Fallback: estimate from prompt
     prompt = hook_input.get("prompt", "")
-    return len(prompt) // 4
+    return len(prompt.encode("utf-8")) // 4
 
 
 def get_savings_summary(hook_input: dict) -> str:
@@ -116,16 +123,19 @@ def main() -> None:
 
     tokens = estimate_tokens(hook_input)
     savings_summary = get_savings_summary(hook_input)
-    message = get_nudge_message(tokens, savings_summary)
+    nudge = get_nudge_message(tokens, savings_summary)
 
-    if message:
-        result = {
-            "hookSpecificOutput": {
-                "hookEventName": "UserPromptSubmit",
-                "additionalContext": message,
-            }
+    context_parts = [DEDUP_RULE]
+    if nudge:
+        context_parts.append(nudge)
+
+    result = {
+        "hookSpecificOutput": {
+            "hookEventName": "UserPromptSubmit",
+            "additionalContext": "\n".join(context_parts),
         }
-        print(json.dumps(result))
+    }
+    print(json.dumps(result))
 
     sys.exit(0)
 

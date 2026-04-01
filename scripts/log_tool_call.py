@@ -3,7 +3,7 @@
 PostToolUse hook: Track tool call signatures for dedup detection.
 
 Reads hook JSON from stdin, extracts tool name/input, computes signature,
-logs it to session state, and increments turn counter.
+and logs it to session state.
 """
 
 import json
@@ -15,7 +15,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from lib import (
     get_state_dir,
-    increment_turn,
     log_tool_call,
     trim_log_file,
 )
@@ -45,11 +44,8 @@ def main() -> None:
     # Log the tool call
     log_tool_call(state_dir, tool_name, tool_input, tool_id)
 
-    # Increment turn counter
-    increment_turn(state_dir)
-
     # Trim tool log to prevent unbounded growth
-    log_file = f"{state_dir}/tool-log.jsonl"
+    log_file = os.path.join(state_dir, "tool-log.jsonl")
     trim_log_file(log_file)
 
     sys.exit(0)

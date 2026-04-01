@@ -33,7 +33,6 @@ def main() -> None:
 
     session_id = hook_input.get("session_id", "")
     tool_name = hook_input.get("tool_name", "")
-    tool_input = hook_input.get("tool_input", {})
     tool_id = hook_input.get("tool_use_id", "")
 
     if not session_id or not tool_name:
@@ -42,7 +41,7 @@ def main() -> None:
     state_dir = get_state_dir(session_id)
 
     # Log the error with turn counter
-    log_error(state_dir, tool_name, tool_input, tool_id)
+    log_error(state_dir, tool_name, tool_id)
 
     # Trim error log to prevent unbounded growth
     trim_error_log(state_dir)
