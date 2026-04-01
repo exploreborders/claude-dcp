@@ -24,6 +24,9 @@ from lib import (
     ERROR_PURGE_TURNS,
     PROTECTED_TOOLS,
     compute_signature,
+    format_bytes_saved,
+    get_state_dir,
+    update_optimization_stats,
 )
 
 
@@ -304,13 +307,22 @@ def main() -> None:
         print(f"claude-dcp: transcript optimization error: {e}", file=sys.stderr)
         sys.exit(0)
 
+    # Save cumulative stats if session_id is available
+    session_id = hook_input.get("session_id", "")
+    if session_id and (stats["deduplicated"] > 0 or stats["error_inputs_purged"] > 0):
+        try:
+            state_dir = get_state_dir(session_id)
+            update_optimization_stats(state_dir, stats)
+        except Exception:
+            pass  # Don't fail if stats can't be saved
+
     if stats["deduplicated"] > 0 or stats["error_inputs_purged"] > 0:
-        saved_kb = stats["bytes_saved"] / 1024
+        saved_formatted = format_bytes_saved(stats["bytes_saved"])
         summary = (
             f"claude-dcp: optimized transcript — "
             f"{stats['deduplicated']} duplicates removed, "
             f"{stats['error_inputs_purged']} error inputs purged, "
-            f"~{saved_kb:.1f}KB saved"
+            f"~{saved_formatted} saved"
         )
         print(summary, file=sys.stderr)
 

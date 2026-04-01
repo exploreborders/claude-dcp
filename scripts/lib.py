@@ -288,3 +288,63 @@ def trim_log_file(log_file: str, max_entries: Optional[int] = None) -> None:
 def trim_error_log(state_dir: str, max_entries: Optional[int] = None) -> None:
     """Trim error-log.jsonl to prevent unbounded growth."""
     trim_log_file(os.path.join(state_dir, "error-log.jsonl"), max_entries)
+
+
+# --- Cumulative Optimization Stats ---
+
+
+def get_optimization_stats(state_dir: str) -> dict[str, int]:
+    """Get cumulative optimization stats for the session.
+
+    Returns a dict with:
+        - total_bytes_saved: Total bytes saved across all optimizations
+        - total_duplicates_removed: Total duplicates removed
+        - total_error_inputs_purged: Total error inputs purged
+        - optimization_count: Number of times optimization has run
+    """
+    stats_file = os.path.join(state_dir, "optimization-stats.json")
+    if os.path.isfile(stats_file):
+        try:
+            return json.loads(Path(stats_file).read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {
+        "total_bytes_saved": 0,
+        "total_duplicates_removed": 0,
+        "total_error_inputs_purged": 0,
+        "optimization_count": 0,
+    }
+
+
+def update_optimization_stats(state_dir: str, stats: dict[str, int]) -> None:
+    """Update cumulative optimization stats with new optimization results.
+
+    Args:
+        state_dir: Session state directory
+        stats: Stats from a single optimization run with keys:
+            - bytes_saved
+            - deduplicated
+            - error_inputs_purged
+    """
+    current = get_optimization_stats(state_dir)
+    current["total_bytes_saved"] += stats.get("bytes_saved", 0)
+    current["total_duplicates_removed"] += stats.get("deduplicated", 0)
+    current["total_error_inputs_purged"] += stats.get("error_inputs_purged", 0)
+    current["optimization_count"] += 1
+
+    stats_file = os.path.join(state_dir, "optimization-stats.json")
+    with open(stats_file, "w", encoding="utf-8") as f:
+        json.dump(current, f, separators=(",", ":"))
+
+
+def format_bytes_saved(bytes_saved: int) -> str:
+    """Format bytes saved in a human-readable way.
+
+    Returns a string like "1.2KB", "3.4MB", etc.
+    """
+    if bytes_saved < 1024:
+        return f"{bytes_saved}B"
+    elif bytes_saved < 1024 * 1024:
+        return f"{bytes_saved / 1024:.1f}KB"
+    else:
+        return f"{bytes_saved / (1024 * 1024):.1f}MB"

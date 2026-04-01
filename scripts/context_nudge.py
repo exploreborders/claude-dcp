@@ -17,6 +17,9 @@ from lib import (
     INFO_THRESHOLD_TOKENS,
     URGENT_THRESHOLD_TOKENS,
     WARN_THRESHOLD_TOKENS,
+    format_bytes_saved,
+    get_optimization_stats,
+    get_state_dir,
 )
 
 
@@ -35,23 +38,66 @@ def estimate_tokens(hook_input: dict) -> int:
     return len(prompt) // 4
 
 
-def get_nudge_message(tokens: int):
+def get_savings_summary(hook_input: dict) -> str:
+    """Get a summary of cumulative token savings for this session.
+
+    Returns an empty string if no savings have been recorded.
+    """
+    session_id = hook_input.get("session_id", "")
+    if not session_id:
+        return ""
+
+    try:
+        state_dir = get_state_dir(session_id)
+        stats = get_optimization_stats(state_dir)
+    except Exception:
+        return ""
+
+    if stats["optimization_count"] == 0:
+        return ""
+
+    saved = format_bytes_saved(stats["total_bytes_saved"])
+    # Estimate tokens saved (rough: ~4 bytes per token)
+    tokens_saved = stats["total_bytes_saved"] // 4
+    tokens_saved_str = f"~{tokens_saved:,}" if tokens_saved > 0 else "0"
+
+    parts = [
+        f"DCP Savings: {saved} saved ({tokens_saved_str} tokens est.)",
+        f"  • {stats['total_duplicates_removed']} duplicates removed",
+        f"  • {stats['total_error_inputs_purged']} error inputs purged",
+        f"  • {stats['optimization_count']} optimization(s) run",
+    ]
+    return "\n".join(parts)
+
+
+def get_nudge_message(tokens: int, savings_summary: str = ""):
     """Return a nudge message based on token count, or None if not needed."""
+    # Build base message
     if tokens >= URGENT_THRESHOLD_TOKENS:
         pct = min(100, int(tokens / 200_000 * 100))
-        return (
+        base = (
             f"URGENT: Context is ~{tokens:,} tokens ({pct}% of 200K limit). "
             f"Avoid reading large files. Consider /compact."
         )
     elif tokens >= WARN_THRESHOLD_TOKENS:
         pct = int(tokens / 200_000 * 100)
-        return (
+        base = (
             f"Context is ~{tokens:,} tokens ({pct}% of 200K limit). "
             f"Be mindful of large outputs."
         )
     elif tokens >= INFO_THRESHOLD_TOKENS:
-        return f"Context: ~{tokens:,} tokens (~{int(tokens / 200_000 * 100)}%)"
-    return None
+        base = f"Context: ~{tokens:,} tokens (~{int(tokens / 200_000 * 100)}%)"
+    else:
+        base = None
+
+    # Combine with savings summary if available
+    if savings_summary:
+        if base:
+            return f"{base}\n{savings_summary}"
+        # Even if below threshold, show savings if there are any
+        return savings_summary
+
+    return base
 
 
 def main() -> None:
@@ -69,7 +115,8 @@ def main() -> None:
         sys.exit(0)
 
     tokens = estimate_tokens(hook_input)
-    message = get_nudge_message(tokens)
+    savings_summary = get_savings_summary(hook_input)
+    message = get_nudge_message(tokens, savings_summary)
 
     if message:
         result = {
