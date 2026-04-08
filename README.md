@@ -47,7 +47,7 @@ Native compaction (`/compact`) is **LLM-driven** — it sends the full transcrip
                    ↓ DCP Pre-Optimization
 ┌─────────────────────────────────────────────┐
 │ After DCP, Before Native Compaction         │
-├────────────────────��───────────────────────┤
+├─────────────────────────────────────────────┤
 │ transcript.jsonl (now smaller)              │
 │   ├── [Output deduplicated]                 │ ← Placeholder
 │   ├── "git status" output (kept)            │
