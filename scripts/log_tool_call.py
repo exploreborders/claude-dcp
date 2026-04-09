@@ -9,6 +9,7 @@ and logs it to session state.
 import json
 import os
 import sys
+import time
 
 # Allow importing sibling modules
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -17,7 +18,20 @@ from lib import (
     get_state_dir,
     log_tool_call,
     trim_log_file,
+    write_session_summary,
 )
+
+_summary_cache_time = 0
+_summary_cache_interval = 10
+
+
+def _maybe_update_summary(state_dir: str) -> None:
+    """Update session summary at most once per interval seconds."""
+    global _summary_cache_time
+    now = time.time()
+    if now - _summary_cache_time >= _summary_cache_interval:
+        write_session_summary(state_dir)
+        _summary_cache_time = now
 
 
 def main() -> None:
@@ -41,12 +55,12 @@ def main() -> None:
 
     state_dir = get_state_dir(session_id)
 
-    # Log the tool call
     log_tool_call(state_dir, tool_name, tool_input, tool_id)
 
-    # Trim tool log to prevent unbounded growth
     log_file = os.path.join(state_dir, "tool-log.jsonl")
     trim_log_file(log_file)
+
+    _maybe_update_summary(state_dir)
 
     sys.exit(0)
 

@@ -20,6 +20,7 @@ from lib import (
     format_bytes_saved,
     get_optimization_stats,
     get_state_dir,
+    read_session_summary,
 )
 
 
@@ -35,12 +36,10 @@ def estimate_tokens(hook_input: dict) -> int:
 
     Uses character count / 4 as a rough approximation.
     """
-    # Try to use transcript if available
     transcript = hook_input.get("transcript", "")
     if transcript:
         return len(transcript.encode("utf-8")) // 4
 
-    # Fallback: estimate from prompt
     prompt = hook_input.get("prompt", "")
     return len(prompt.encode("utf-8")) // 4
 
@@ -56,30 +55,29 @@ def get_savings_summary(hook_input: dict) -> str:
 
     try:
         state_dir = get_state_dir(session_id)
-        stats = get_optimization_stats(state_dir)
+        summary = read_session_summary(state_dir)
     except Exception:
         return ""
 
-    if stats["optimization_count"] == 0:
+    opt = summary.get("optimization", {})
+    if opt.get("optimization_count", 0) == 0:
         return ""
 
-    saved = format_bytes_saved(stats["total_bytes_saved"])
-    # Estimate tokens saved (rough: ~4 bytes per token)
-    tokens_saved = stats["total_bytes_saved"] // 4
+    bytes_saved = opt.get("total_bytes_saved", 0)
+    saved = format_bytes_saved(bytes_saved)
+    tokens_saved = bytes_saved // 4
     tokens_saved_str = f"~{tokens_saved:,}" if tokens_saved > 0 else "0"
 
     parts = [
-        f"DCP Savings: {saved} saved ({tokens_saved_str} tokens est.)",
-        f"  • {stats['total_duplicates_removed']} duplicates removed",
-        f"  • {stats['total_error_inputs_purged']} error inputs purged",
-        f"  • {stats['optimization_count']} optimization(s) run",
+        f"DCP: {saved} saved ({tokens_saved_str} tokens est.)",
+        f"  • {opt.get('total_duplicates_removed', 0)} dups removed",
+        f"  • {opt.get('total_error_inputs_purged', 0)} errors purged",
     ]
     return "\n".join(parts)
 
 
 def get_nudge_message(tokens: int, savings_summary: str = ""):
     """Return a nudge message based on token count, or None if not needed."""
-    # Build base message
     if tokens >= URGENT_THRESHOLD_TOKENS:
         pct = min(100, int(tokens / 200_000 * 100))
         base = (
@@ -97,11 +95,9 @@ def get_nudge_message(tokens: int, savings_summary: str = ""):
     else:
         base = None
 
-    # Combine with savings summary if available
     if savings_summary:
         if base:
             return f"{base}\n{savings_summary}"
-        # Even if below threshold, show savings if there are any
         return savings_summary
 
     return base

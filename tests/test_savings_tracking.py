@@ -133,8 +133,7 @@ class TestSavingsSummary:
         monkeypatch.setattr(context_nudge, "get_state_dir", lambda sid: str(tmp_path))
 
         result = context_nudge.get_savings_summary({"session_id": "test"})
-        assert "DCP Savings:" in result
+        assert "DCP:" in result
         assert "4.0KB saved" in result
-        assert "3 duplicates removed" in result
-        assert "1 error inputs purged" in result
-        assert "1 optimization" in result
+        assert "3 dups removed" in result
+        assert "1 errors purged" in result

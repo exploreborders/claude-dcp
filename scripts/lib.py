@@ -329,3 +329,47 @@ def format_bytes_saved(bytes_saved: int) -> str:
         return f"{bytes_saved / 1024:.1f}KB"
     else:
         return f"{bytes_saved / (1024 * 1024):.1f}MB"
+
+
+# --- Session Summary Cache ---
+
+
+def write_session_summary(state_dir: str) -> None:
+    """Write a cached session summary to session-summary.json.
+
+    This is a performance optimization — the summary can be read
+    by context_report.py without parsing multiple log files.
+    """
+    summary = {
+        "turn_counter": get_turn(state_dir),
+        "tool_call_count": count_lines(os.path.join(state_dir, "tool-log.jsonl")),
+        "error_count": count_lines(os.path.join(state_dir, "error-log.jsonl")),
+        "optimization": get_optimization_stats(state_dir),
+        "last_updated": int(time.time()),
+    }
+    summary_file = os.path.join(state_dir, "session-summary.json")
+    with open(summary_file, "w", encoding="utf-8") as f:
+        json.dump(summary, f, separators=(",", ":"))
+
+
+def read_session_summary(state_dir: str) -> dict[str, Any]:
+    """Read the cached session summary, or reconstruct from raw files.
+
+    Returns a dict with keys: turn_counter, tool_call_count, error_count,
+    optimization (dict), last_updated (int), or empty defaults if no data.
+    """
+    summary_file = os.path.join(state_dir, "session-summary.json")
+    if os.path.isfile(summary_file):
+        try:
+            cached = json.loads(Path(summary_file).read_text())
+            if cached.get("last_updated", 0) > 0:
+                return cached
+        except (json.JSONDecodeError, OSError):
+            pass
+    return {
+        "turn_counter": get_turn(state_dir),
+        "tool_call_count": count_lines(os.path.join(state_dir, "tool-log.jsonl")),
+        "error_count": count_lines(os.path.join(state_dir, "error-log.jsonl")),
+        "optimization": get_optimization_stats(state_dir),
+        "last_updated": int(time.time()),
+    }

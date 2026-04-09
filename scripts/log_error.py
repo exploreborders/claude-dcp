@@ -9,6 +9,7 @@ with the current turn counter for age-based purging.
 import json
 import os
 import sys
+import time
 
 # Allow importing sibling modules
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -17,7 +18,20 @@ from lib import (
     get_state_dir,
     log_error,
     trim_error_log,
+    write_session_summary,
 )
+
+_summary_cache_time = 0
+_summary_cache_interval = 10
+
+
+def _maybe_update_summary(state_dir: str) -> None:
+    """Update session summary at most once per interval seconds."""
+    global _summary_cache_time
+    now = time.time()
+    if now - _summary_cache_time >= _summary_cache_interval:
+        write_session_summary(state_dir)
+        _summary_cache_time = now
 
 
 def main() -> None:
@@ -40,11 +54,11 @@ def main() -> None:
 
     state_dir = get_state_dir(session_id)
 
-    # Log the error with turn counter
     log_error(state_dir, tool_name, tool_id)
 
-    # Trim error log to prevent unbounded growth
     trim_error_log(state_dir)
+
+    _maybe_update_summary(state_dir)
 
     sys.exit(0)
 
